@@ -1,26 +1,68 @@
-# Kitchen AI Voice Assistant 
+# Kitchen AI Voice Assistant
 
-An AI-powered kitchen assistant built using:
-- LiveKit Agent demo
-- OpenAI API
-- Async Python
+An AI-powered real-time kitchen compliance voice assistant built using LiveKit Agents and OpenAI.
 
-## Features
-- Metric units (AU friendly 🇦🇺)
-- Async kitchen timers
-- Conversation memory
+This assistant monitors:
 
-## Setup
+Fridge & freezer temperatures
 
-1. Create virtual environment
-2. Install dependencies
-3. Add .env file with:
+-Food expiry dates
 
-LIVEKIT_URL=
-LIVEKIT_API_KEY=
-LIVEKIT_API_SECRET=
-OPENAI_API_KEY=
+ -Kitchen timers
 
-4. Run:
+ -Inventory tracking
 
-python agent.py
+It supports voice interaction via LiveKit Playground and can run locally or on a cloud server.
+
+# Features
+
+Real-time voice interaction (STT + TTS)
+
+AI-powered responses via OpenAI
+
+Function calling (tool execution)
+
+Background monitoring alerts
+
+Async Python architecture
+
+Production-ready deployment support
+
+# Tech Stack
+
+Python 3.11
+
+LiveKit Agents (v1.4.3)
+
+OpenAI API
+
+AsyncIO
+
+dotenv
+# Environment Variables
+
+Created a .env file in the project root:
+
+OPENAI_API_KEY=your_openai_key
+LIVEKIT_URL=wss://your_livekit_url
+LIVEKIT_API_KEY=your_livekit_key
+LIVEKIT_API_SECRET=your_livekit_secret
+# Architecture
+User (Voice)
+    ↓
+LiveKit Playground
+    ↓
+LiveKit Cloud
+    ↓
+Kitchen AI Agent (Python Worker)
+    ↓
+OpenAI API
+# Deployment
+The agent can be deployed on:
+VPS (DigitalOcean, AWS, Hetzner)
+Docker container
+Cloud VM
+Private server
+No inbound ports required. The agent connects outbound to LiveKit Cloud.
+# Project Status
+Active development – built as a LiveKit AI voice assistant demo with production deployment capability.
