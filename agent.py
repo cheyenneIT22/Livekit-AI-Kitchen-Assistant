@@ -187,7 +187,12 @@ async def entrypoint(ctx: JobContext):
     logger.info("Kitchen AI Agent is ready!")
 
 
+
 if __name__ == "__main__":
     cli.run_app(
-        WorkerOptions(entrypoint_fnc=entrypoint)
+        WorkerOptions(
+            entrypoint_fnc=entrypoint,
+            worker_type="room",
+        )
     )
+
