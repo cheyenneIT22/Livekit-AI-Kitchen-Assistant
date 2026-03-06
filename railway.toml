@@ -1,5 +1,2 @@
-[build]
-builder = "NIXPACKS"
-
-[start]
-cmd = "python agent.py start"
+[deploy]
+startCommand = "python agent.py start"
