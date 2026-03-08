@@ -1,2 +1,2 @@
 [deploy]
-startCommand = "python agent.py start"
+startCommand = "python worker.py start"
