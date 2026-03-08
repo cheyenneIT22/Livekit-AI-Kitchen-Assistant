@@ -1,1 +1,1 @@
-worker: python agent.py start
+worker: python worker.py start
