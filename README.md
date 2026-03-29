@@ -178,6 +178,6 @@ Chef (Voice via Browser)
         ↓
    OpenAI API (GPT-4o)
 
- ## Project Status
 
+## Project Status
 Active development — production-ready restaurant kitchen AI voice assistant with multi-user browser support, full compliance tooling, and server deployment capability.
