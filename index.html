@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chef Compliance — Kitchen AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/livekit-client/2.5.4/livekit-client.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#111;--surface:#1a1a1a;--border:#2c2c2c;--accent:#e8a020;--red:#d04040;--green:#3a9e5f;--text:#e8e4dc;--muted:#555}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-weight:300;min-height:100vh;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+header{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2rem;border-bottom:1px solid var(--border);background:rgba(17,17,17,.96)}
+.logo-name{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.08em;color:var(--accent)}
+.logo-tag{font-family:'IBM Plex Mono',monospace;font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-left:.8rem}
+.hstatus{display:flex;align-items:center;gap:.5rem;font-family:'IBM Plex Mono',monospace;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite}
+.dot.joining{background:var(--accent);animation:blink .6s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+main{position:relative;z-index:1;flex:1;display:grid;grid-template-columns:300px 1fr;gap:1.5rem;padding:1.5rem 2rem;max-width:1080px;width:100%;margin:0 auto}
+.panel{background:var(--surface);border:1px solid var(--border)}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:.7rem 1.2rem;border-bottom:1px solid var(--border)}
+.pt{font-family:'IBM Plex Mono',monospace;font-size:.57rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.badge{background:var(--accent);color:#111;font-family:'IBM Plex Mono',monospace;font-size:.5rem;font-weight:500;padding:.1rem .4rem}
+.login-panel{height:fit-content;position:sticky;top:1.5rem}
+.lb{padding:1.4rem 1.2rem;display:flex;flex-direction:column;gap:1.1rem}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field label{font-family:'IBM Plex Mono',monospace;font-size:.57rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.field input{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:.82rem;padding:.55rem .8rem;outline:none;transition:border-color .15s;width:100%}
+.field input:focus{border-color:var(--accent)}
+.field input::placeholder{color:var(--muted)}
+.room-pill{background:var(--bg);border:1px solid var(--border);padding:.45rem .8rem;font-family:'IBM Plex Mono',monospace;font-size:.58rem;color:var(--muted);display:none}
+.room-pill.show{display:block}
+.room-pill span{color:var(--accent)}
+.btn-join{background:var(--accent);border:none;color:#111;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;padding:.7rem;cursor:pointer;width:100%;transition:opacity .15s}
+.btn-join:hover{opacity:.85}
+.btn-join:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+.btn-leave{background:transparent;border:1px solid var(--red);color:var(--red);font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;padding:.7rem;cursor:pointer;width:100%;transition:all .15s;display:none}
+.btn-leave:hover{background:var(--red);color:#fff}
+.btn-leave.show{display:block}
+.divider{border:none;border-top:1px solid var(--border);margin:.1rem 0}
+.right-col{display:flex;flex-direction:column;gap:1.5rem}
+.vpanel .pb{padding:1.8rem 1.2rem;display:flex;flex-direction:column;align-items:center;gap:1.2rem;min-height:160px;justify-content:center}
+.bars{display:flex;align-items:center;gap:3px;height:46px}
+.bar{width:3px;background:var(--accent);border-radius:1px;height:4px;opacity:.15;transition:height .07s,opacity .07s}
+.bar.on{opacity:1}
+.vlabel{font-family:'IBM Plex Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.vlabel.speaking{color:var(--accent)}
+.vlabel.listening{color:var(--green)}
+.mic-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-size:1rem;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all .15s}
+.mic-btn:hover{border-color:var(--accent);color:var(--accent)}
+.mic-btn.show{display:flex}
+.mic-btn.muted{border-color:var(--red);color:var(--red);background:rgba(208,64,64,.08)}
+.alerts-list{padding:.7rem 1.2rem;display:flex;flex-direction:column;gap:.55rem;max-height:240px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.arow{display:flex;gap:.6rem;align-items:flex-start;animation:fi .25s ease}
+@keyframes fi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.atag{font-family:'IBM Plex Mono',monospace;font-size:.5rem;letter-spacing:.06em;text-transform:uppercase;padding:.12rem .35rem;border:1px solid;flex-shrink:0;margin-top:1px}
+.atag.urgent{color:var(--red);border-color:rgba(208,64,64,.4);background:rgba(208,64,64,.07)}
+.atag.normal{color:var(--accent);border-color:rgba(232,160,32,.3);background:rgba(232,160,32,.06)}
+.atag.safe{color:var(--green);border-color:rgba(58,158,95,.3);background:rgba(58,158,95,.06)}
+.amsg{font-size:.8rem;line-height:1.5}
+.atime{font-family:'IBM Plex Mono',monospace;font-size:.53rem;color:var(--muted)}
+.txlist{padding:.7rem 1.2rem;display:flex;flex-direction:column;gap:.45rem;max-height:190px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.txrow{display:flex;gap:.7rem;font-size:.8rem;line-height:1.5;animation:fi .2s ease}
+.txwho{font-family:'IBM Plex Mono',monospace;font-size:.53rem;color:var(--muted);flex-shrink:0;min-width:46px;text-align:right;padding-top:2px}
+.txwho.agent{color:var(--accent)}
+.txwho.user{color:var(--green)}
+.empty{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);padding:1.2rem;text-align:center}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:#1e0e0e;border:1px solid var(--red);color:var(--red);font-family:'IBM Plex Mono',monospace;font-size:.62rem;padding:.6rem 1rem;z-index:999;animation:fi .2s ease;max-width:300px;line-height:1.5}
+
+/* ---- Audio unlock overlay ---- */
+#audioUnlock{
+  position:fixed;inset:0;background:rgba(10,10,10,.92);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;gap:1.2rem;
+}
+#audioUnlock h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:.1em;color:var(--accent)}
+#audioUnlock p{font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+#audioUnlock button{
+  background:var(--accent);border:none;color:#111;
+  font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.12em;
+  padding:.8rem 2.5rem;cursor:pointer;transition:opacity .15s;
+}
+#audioUnlock button:hover{opacity:.85}
+
+@media(max-width:680px){main{grid-template-columns:1fr;padding:1rem}.login-panel{position:static}}
+</style>
+</head>
+<body>
+
+<!-- Audio unlock overlay — browsers require a user gesture before playing audio -->
+<div id="audioUnlock">
+  <h2>Chef Compliance</h2>
+  <p>Kitchen AI System</p>
+  <button onclick="unlockAudio()">Enter Kitchen</button>
+</div>
+
+<header>
+  <div style="display:flex;align-items:baseline">
+    <span class="logo-name">Chef Compliance</span>
+    <span class="logo-tag">Kitchen AI</span>
+  </div>
+  <div class="hstatus">
+    <div class="dot" id="dot"></div>
+    <span id="stxt">Offline</span>
+  </div>
+</header>
+
+<main>
+  <div class="panel login-panel">
+    <div class="ph"><span class="pt">Session</span></div>
+    <div class="lb">
+      <div class="field">
+        <label>Your Name</label>
+        <input id="uname" type="text" placeholder="e.g. Marco" maxlength="30"
+               onkeydown="if(event.key==='Enter')connect()"/>
+      </div>
+      <div class="field">
+        <label>Room</label>
+        <input id="roomInput" type="text" value="kitchen" maxlength="32"/>
+      </div>
+      <div class="room-pill" id="rpill">Room: <span id="rname">—</span></div>
+      <button class="btn-join" id="bjoin" onclick="connect()">Join Kitchen</button>
+      <button class="btn-leave" id="bleave" onclick="disconnect()">Leave Session</button>
+      <hr class="divider"/>
+      <div class="field">
+        <label>Token Server URL</label>
+        <input id="turl" type="text" value="http://localhost:5000/token"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-col">
+    <div class="panel vpanel">
+      <div class="ph">
+        <span class="pt">Voice</span>
+        <button class="mic-btn" id="mbtn" onclick="toggleMic()">🎤</button>
+      </div>
+      <div class="pb">
+        <div class="bars" id="bars"></div>
+        <div class="vlabel" id="vlbl">Not connected</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="ph">
+        <span class="pt">Alerts</span>
+        <span class="badge" id="abadge" style="display:none">0</span>
+      </div>
+      <div class="alerts-list" id="alist"><div class="empty">No alerts yet.</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="ph"><span class="pt">Conversation</span></div>
+      <div class="txlist" id="txlist"><div class="empty">Transcript will appear here.</div></div>
+    </div>
+  </div>
+</main>
+
+<!-- Hidden audio container — agent voice plays through here -->
+<div id="audioContainer" style="display:none"></div>
+
+<script>
+// ============================================================
+//  Audio unlock
+//  Browsers block autoplay until the user clicks something.
+//  We show a fullscreen overlay first, then resume AudioContext.
+// ============================================================
+let audioCtxGlobal = null;
+
+function unlockAudio() {
+  // Create and immediately resume AudioContext on user gesture
+  audioCtxGlobal = new (window.AudioContext || window.webkitAudioContext)();
+  audioCtxGlobal.resume();
+  document.getElementById('audioUnlock').style.display = 'none';
+}
+
+// ============================================================
+//  Waveform bars
+// ============================================================
+const barsEl = document.getElementById('bars');
+const barArr = [];
+for (let i = 0; i < 30; i++) {
+  const b = document.createElement('div');
+  b.className = 'bar';
+  barsEl.appendChild(b);
+  barArr.push(b);
+}
+let animId = null;
+
+function idleAnim() {
+  if (animId) cancelAnimationFrame(animId);
+  let t = 0;
+  function f() {
+    t += .04;
+    barArr.forEach((b, i) => b.style.height = (3 + Math.sin(t + i * .35) * 2) + 'px');
+    animId = requestAnimationFrame(f);
+  }
+  f();
+}
+
+function liveAnim(el) {
+  if (animId) cancelAnimationFrame(animId);
+  try {
+    // Reuse the unlocked AudioContext
+    const ctx = audioCtxGlobal || new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    const an = ctx.createAnalyser();
+    an.fftSize = 64;
+    ctx.createMediaElementSource(el).connect(an);
+    an.connect(ctx.destination);
+    const d = new Uint8Array(an.frequencyBinCount);
+    function f() {
+      an.getByteFrequencyData(d);
+      barArr.forEach((b, i) => {
+        const v = d[Math.floor(i * d.length / 30)] / 255;
+        b.style.height = (3 + v * 43) + 'px';
+        b.classList.toggle('on', v > .04);
+      });
+      animId = requestAnimationFrame(f);
+    }
+    f();
+  } catch (_) { idleAnim(); }
+}
+
+function stopAnim() {
+  if (animId) cancelAnimationFrame(animId);
+  barArr.forEach(b => { b.style.height = '4px'; b.classList.remove('on'); });
+}
+
+idleAnim();
+
+// ============================================================
+//  State
+// ============================================================
+let room = null, micTrack = null, micMuted = false, alertCount = 0;
+
+// ============================================================
+//  Connect
+// ============================================================
+async function connect() {
+  const uname     = document.getElementById('uname').value.trim().toLowerCase();
+  const roomName  = document.getElementById('roomInput').value.trim() || 'kitchen';
+  const turl      = document.getElementById('turl').value.trim();
+
+  if (!uname) { showToast('Please enter your name.'); return; }
+  if (!turl)  { showToast('Please enter the token server URL.'); return; }
+
+  setS('joining');
+  document.getElementById('bjoin').disabled = true;
+  setV('Connecting...', '');
+
+  try {
+    // Fetch token — pass both username AND room
+    const res = await fetch(
+      `${turl}?username=${encodeURIComponent(uname)}&room=${encodeURIComponent(roomName)}`
+    );
+    if (!res.ok) throw new Error(`Token server returned ${res.status}`);
+    const data = await res.json();
+    if (!data.token)       throw new Error('No token returned.');
+    if (!data.livekit_url) throw new Error('No livekit_url returned.');
+
+    document.getElementById('rname').textContent = roomName;
+    document.getElementById('rpill').classList.add('show');
+
+    // Create LiveKit room
+    room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+
+    // ---- Connected ----
+    room.on(LivekitClient.RoomEvent.Connected, async () => {
+      setS('live');
+      document.getElementById('bjoin').style.display = 'none';
+      document.getElementById('bleave').classList.add('show');
+      document.getElementById('mbtn').classList.add('show');
+      setV('Waiting for Chef Compliance...', '');
+      pushA('safe', 'Connected', `Joined as ${uname} in room "${roomName}"`);
+    });
+
+    // ---- Disconnected ----
+    room.on(LivekitClient.RoomEvent.Disconnected, () => {
+      setS('offline');
+      document.getElementById('bjoin').style.display = '';
+      document.getElementById('bjoin').disabled = false;
+      document.getElementById('bleave').classList.remove('show');
+      document.getElementById('mbtn').classList.remove('show');
+      setV('Not connected', '');
+      stopAnim(); idleAnim();
+      // Remove all audio elements
+      document.getElementById('audioContainer').innerHTML = '';
+    });
+
+    // ---- Agent joined ----
+    room.on(LivekitClient.RoomEvent.ParticipantConnected, p => {
+      const isAgent =
+        p.kind === LivekitClient.ParticipantKind.AGENT ||
+        p.kind === LivekitClient.ParticipantKind.PARTICIPANT_KIND_AGENT;
+      if (isAgent) {
+        setV('Chef Compliance is ready', 'listening');
+        pushA('safe', 'Agent', 'Chef Compliance has joined the room');
+      } else {
+        pushA('normal', 'Chef', `${p.name || p.identity} joined`);
+      }
+    });
+
+    // ---- Track subscribed — THIS is where agent audio arrives ----
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      const isAgent =
+        participant.kind === LivekitClient.ParticipantKind.AGENT ||
+        participant.kind === LivekitClient.ParticipantKind.PARTICIPANT_KIND_AGENT;
+
+      if (track.kind === LivekitClient.Track.Kind.Audio && isAgent) {
+        // Attach audio element inside the audioContainer div
+        const el = track.attach();
+        el.autoplay = true;
+        el.controls = false;
+
+        // Resume AudioContext if suspended (Chrome sometimes suspends it)
+        if (audioCtxGlobal && audioCtxGlobal.state === 'suspended') {
+          audioCtxGlobal.resume();
+        }
+
+        // Append to container and attempt to play
+        document.getElementById('audioContainer').appendChild(el);
+        el.play().catch(err => {
+          console.warn('Audio play blocked:', err);
+          showToast('Audio blocked by browser — click anywhere on the page to enable sound.');
+        });
+
+        liveAnim(el);
+        setV('Chef Compliance is speaking', 'speaking');
+
+        track.on('ended', () => setV('Ready', 'listening'));
+      }
+    });
+
+    // ---- Track unsubscribed — clean up audio element ----
+    room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+      if (track.kind === LivekitClient.Track.Kind.Audio) {
+        track.detach().forEach(el => el.remove());
+      }
+    });
+
+    // ---- Active speakers ----
+    room.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, speakers => {
+      const agentSpeaking = speakers.some(s =>
+        s.kind === LivekitClient.ParticipantKind.AGENT ||
+        s.kind === LivekitClient.ParticipantKind.PARTICIPANT_KIND_AGENT
+      );
+      const meSpeaking = speakers.some(s => s.isLocal);
+      if (agentSpeaking)   setV('Chef Compliance is speaking', 'speaking');
+      else if (meSpeaking) setV('Listening...', 'listening');
+      else                 setV('Ready', 'listening');
+    });
+
+    // ---- Data messages (transcripts / alerts) ----
+    room.on(LivekitClient.RoomEvent.DataReceived, payload => {
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg.type === 'transcript') addTx(msg.role === 'agent' ? 'agent' : 'user', msg.text);
+        if (msg.type === 'alert')      pushA(msg.severity || 'normal', msg.label || 'Alert', msg.message);
+      } catch (_) {}
+    });
+
+    // ---- Connect to room ----
+    await room.connect(data.livekit_url, data.token);
+
+    // ---- Publish microphone ----
+    micTrack = await LivekitClient.createLocalAudioTrack({
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl:  true,
+    });
+    await room.localParticipant.publishTrack(micTrack);
+
+  } catch (err) {
+    setS('offline');
+    document.getElementById('bjoin').disabled = false;
+    showToast('Failed: ' + err.message);
+    console.error(err);
+  }
+}
+
+// ============================================================
+//  Disconnect
+// ============================================================
+async function disconnect() {
+  if (room) {
+    await room.disconnect();
+    room = null;
+    micTrack = null;
+  }
+  stopAnim(); idleAnim();
+  document.getElementById('rpill').classList.remove('show');
+  document.getElementById('audioContainer').innerHTML = '';
+}
+
+// ============================================================
+//  Mic toggle
+// ============================================================
+function toggleMic() {
+  if (!micTrack) return;
+  micMuted = !micMuted;
+  micTrack.mute(micMuted);
+  const b = document.getElementById('mbtn');
+  b.textContent = micMuted ? '🔇' : '🎤';
+  b.classList.toggle('muted', micMuted);
+}
+
+// ============================================================
+//  UI helpers
+// ============================================================
+function setS(s) {
+  const dot = document.getElementById('dot'), txt = document.getElementById('stxt');
+  dot.className = 'dot';
+  if (s === 'live')    { dot.classList.add('live');    txt.textContent = 'Live';       txt.style.color = 'var(--green)'; }
+  if (s === 'joining') { dot.classList.add('joining'); txt.textContent = 'Connecting'; txt.style.color = 'var(--accent)'; }
+  if (s === 'offline') {                               txt.textContent = 'Offline';    txt.style.color = 'var(--muted)'; }
+}
+
+function setV(t, c) {
+  const e = document.getElementById('vlbl');
+  e.textContent = t;
+  e.className = 'vlabel' + (c ? ' ' + c : '');
+}
+
+function pushA(type, label, msg) {
+  const list = document.getElementById('alist');
+  list.querySelector('.empty')?.remove();
+  alertCount++;
+  const b = document.getElementById('abadge');
+  b.textContent = alertCount;
+  b.style.display = 'block';
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const row = document.createElement('div');
+  row.className = 'arow';
+  row.innerHTML = `<div><div class="atag ${type}">${label}</div></div><div><div class="amsg">${msg}</div><div class="atime">${now}</div></div>`;
+  list.prepend(row);
+}
+
+function addTx(who, text) {
+  const list = document.getElementById('txlist');
+  list.querySelector('.empty')?.remove();
+  const row = document.createElement('div');
+  row.className = 'txrow';
+  row.innerHTML = `<div class="txwho ${who}">${who === 'agent' ? 'AI' : 'You'}</div><div>${text}</div>`;
+  list.appendChild(row);
+  list.scrollTop = list.scrollHeight;
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+</script>
+</body>
+</html>
