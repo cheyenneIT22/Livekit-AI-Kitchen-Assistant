@@ -118,7 +118,6 @@ LIVEKIT_API_SECRET=your_livekit_secret
 pip install livekit-agents livekit-plugins-openai livekit-plugins-silero \
             python-dotenv flask flask-cors livekit-api
 ```
-
 ---
 
 ## Running Locally
@@ -132,7 +131,7 @@ python token_server.py
 
 # Then open index.html in any browser
 ```
-
+Note: Download token_server py file as well as the index.html when running on multiple browsers
 ---
 
 ## Running on a Server
@@ -149,6 +148,8 @@ pip install livekit-agents livekit-plugins-openai livekit-plugins-silero \
 # Run agent
 python3 worker.py dev
 ```
+Note: for running the worker.py may have to manually copy and paste code into a text file using the nano worker.py command and save it,
+and also manually copying all of the code from the agent into a text file using the same nano commands and saving it. (only if files don't connect properly)
 
 No inbound ports required. The agent connects outbound to LiveKit Cloud.
 
