@@ -2,7 +2,8 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict
-from livekit.plugins import openai, silero  # add silero here at the top
+
+from livekit.plugins import openai, silero
 from dotenv import load_dotenv
 
 from livekit.agents import (
@@ -47,6 +48,10 @@ class KitchenState:
         self.stock_requests: List[Dict] = []
         self.maintenance_issues: List[Dict] = []
         self.alert_queue: List[Dict] = []
+
+        # Pending deletions waiting for confirmation
+        # {type: "note"|"inventory", index: int, item: dict}
+        self.pending_delete: Dict = {}
 
     def check_temperature(self) -> List[str]:
         issues = []
@@ -177,6 +182,161 @@ async def entrypoint(ctx: JobContext):
             status = "EXPIRED" if days_left < 0 else f"expires in {days_left} day{'s' if days_left != 1 else ''}"
             lines.append(f"{item['name']} ({item['storage']}, {status})")
         return "Inventory: " + "; ".join(lines)
+
+    @function_tool()
+    async def delete_inventory_item(name: str) -> str:
+        """
+        Safely delete a food item from inventory by name.
+        Asks the chef to confirm before removing.
+        Call this when a chef says:
+        - remove [item] from inventory
+        - delete [item]
+        - take [item] off the inventory
+        - we used all the [item]
+        - [item] is gone
+        """
+        match = None
+        for i, item in enumerate(state.food_inventory):
+            if name.lower() in item["name"].lower():
+                match = (i, item)
+                break
+
+        if not match:
+            return f"No inventory item found matching '{name}'. Check the inventory with get_inventory."
+
+        idx, item = match
+        # Store pending deletion for confirmation
+        state.pending_delete = {
+            "type":  "inventory",
+            "index": idx,
+            "item":  item,
+            "name":  item["name"],
+        }
+
+        days_left = (item["expiry"] - datetime.now()).days
+        status = "EXPIRED" if days_left < 0 else f"expires in {days_left} days"
+        return (
+            f"Please confirm: delete '{item['name']}' ({item['storage']}, {status}) "
+            f"from inventory? Say YES to confirm or NO to cancel."
+        )
+
+    @function_tool()
+    async def delete_note(keyword: str) -> str:
+        """
+        Safely delete a shift note by matching a keyword in its text.
+        Asks the chef to confirm before removing.
+        Call this when a chef says:
+        - delete note about [topic]
+        - remove note [text]
+        - clear that note
+        - delete reminder about [topic]
+        """
+        match = None
+        for i, note in enumerate(state.notes):
+            if keyword.lower() in note["text"].lower():
+                match = (i, note)
+                break
+
+        if not match:
+            return f"No note found matching '{keyword}'. Use get_notes to see all notes."
+
+        idx, note = match
+        state.pending_delete = {
+            "type":  "note",
+            "index": idx,
+            "item":  note,
+            "name":  note["text"],
+        }
+
+        return (
+            f"Please confirm: delete note [{note['category']}] \"{note['text']}\" "
+            f"saved at {note['timestamp']}? Say YES to confirm or NO to cancel."
+        )
+
+    @function_tool()
+    async def confirm_delete(confirmed: bool) -> str:
+        """
+        Confirm or cancel a pending deletion.
+        Call this immediately when the chef says YES or NO after a delete request.
+        confirmed=True to proceed, confirmed=False to cancel.
+        """
+        if not state.pending_delete:
+            return "No deletion is pending. Nothing to confirm."
+
+        pending = state.pending_delete
+        state.pending_delete = {}
+
+        if not confirmed:
+            return f"Deletion cancelled. '{pending['name']}' has not been removed."
+
+        if pending["type"] == "inventory":
+            # Re-find the item in case list changed
+            for i, item in enumerate(state.food_inventory):
+                if item["name"] == pending["item"]["name"]:
+                    state.food_inventory.pop(i)
+                    state.push_alert(f"Inventory item removed: {item['name']}", priority="normal")
+                    logger.info(f"Inventory deleted: {item['name']}")
+                    return f"'{item['name']}' has been removed from inventory."
+            return "Item could not be found — it may have already been removed."
+
+        elif pending["type"] == "note":
+            # Re-find the note
+            for i, note in enumerate(state.notes):
+                if note["text"] == pending["item"]["text"] and note["timestamp"] == pending["item"]["timestamp"]:
+                    state.notes.pop(i)
+                    state.push_alert(f"Note deleted: {note['text'][:40]}", priority="normal")
+                    logger.info(f"Note deleted: {note['text']}")
+                    return f"Note \"{note['text']}\" has been deleted."
+            return "Note could not be found — it may have already been removed."
+
+        return "Unknown deletion type."
+
+    @function_tool()
+    async def delete_all_expired_items() -> str:
+        """
+        Automatically remove all expired food items from inventory.
+        Call this when a chef says:
+        - clear expired items
+        - remove everything expired
+        - clean up the inventory
+        - delete all expired food
+        This does NOT require confirmation as it only removes expired items.
+        """
+        expired = [item for item in state.food_inventory
+                   if (item["expiry"] - datetime.now()).days < 0]
+
+        if not expired:
+            return "No expired items found in inventory. All items are within their use-by dates."
+
+        for item in expired:
+            state.food_inventory.remove(item)
+            logger.info(f"Expired item auto-removed: {item['name']}")
+
+        names = ", ".join(i["name"] for i in expired)
+        state.push_alert(f"Expired items removed: {names}", priority="normal")
+        return f"{len(expired)} expired item{'s' if len(expired) != 1 else ''} removed: {names}."
+
+    @function_tool()
+    async def clear_all_notes() -> str:
+        """
+        Delete ALL shift notes after confirmation.
+        Call this when a chef says clear all notes or delete all notes.
+        Always ask for confirmation before clearing everything.
+        """
+        if not state.notes:
+            return "There are no notes to clear."
+
+        count = len(state.notes)
+        state.pending_delete = {
+            "type":  "all_notes",
+            "index": -1,
+            "item":  {},
+            "name":  f"all {count} notes",
+        }
+        return (
+            f"Please confirm: permanently delete ALL {count} shift note{'s' if count != 1 else ''}? "
+            f"This cannot be undone. Say YES to confirm or NO to cancel."
+        )
 
     @function_tool()
     async def add_note(note: str, category: str = "general") -> str:
@@ -381,15 +541,37 @@ async def entrypoint(ctx: JobContext):
            Any time a chef reports something broken or needing fixing —
            call report_maintenance() immediately.
 
-        5. After every tool call that saves data, confirm to the chef:
-           tell them exactly what was saved and that it will appear in the shift summary.
+        5. DELETING NOTES:
+           Any time a chef says "delete note", "remove note", "clear note",
+           "delete reminder" — call delete_note() with a keyword from the note.
+           Always read back what will be deleted and wait for YES or NO.
+           When chef says YES call confirm_delete(confirmed=True).
+           When chef says NO call confirm_delete(confirmed=False).
+
+        6. DELETING INVENTORY:
+           Any time a chef says "remove [item]", "delete [item]", "we used all [item]",
+           "[item] is gone" — call delete_inventory_item() with the item name.
+           Always read back what will be deleted and wait for YES or NO.
+           When chef says YES call confirm_delete(confirmed=True).
+           When chef says NO call confirm_delete(confirmed=False).
+
+        7. EXPIRED ITEMS:
+           Any time a chef says "clear expired", "remove expired items", "clean up inventory"
+           — call delete_all_expired_items() immediately. No confirmation needed.
+
+        8. CLEAR ALL NOTES:
+           Any time a chef says "clear all notes" or "delete all notes"
+           — call clear_all_notes() and wait for YES or NO confirmation.
+
+        9. After every tool call that saves or deletes data, confirm to the chef
+           exactly what happened.
 
         On startup:
         - Greet the chef as Chef Compliance
         - Call check_temperature and check_food_expiry immediately
         - Report any issues found
         - Tell the chef you can save notes, reminders, stock requests,
-          and maintenance issues for their shift
+          and maintenance issues, and that you can also delete items safely
 
         Tone: professional, formal, concise.
         """,
@@ -400,8 +582,13 @@ async def entrypoint(ctx: JobContext):
             check_food_expiry,
             add_food_item,
             get_inventory,
+            delete_inventory_item,
+            delete_all_expired_items,
             add_note,
             get_notes,
+            delete_note,
+            clear_all_notes,
+            confirm_delete,
             request_stock,
             get_stock_requests,
             report_maintenance,
@@ -415,16 +602,13 @@ async def entrypoint(ctx: JobContext):
 
     # ----------------------
     # Create Session
-    # No external VAD plugin needed — the STT stream handles
-    # turn detection automatically via OpenAI's Whisper endpoint.
     # ----------------------
 
-   # then change the session to:
     session = AgentSession(
-    stt=STT(language="en"),
-    llm=LLM(model="gpt-4o"),
-    tts=TTS(),
-    vad=silero.VAD.load(),
+        stt=STT(language="en"),
+        llm=LLM(model="gpt-4o"),
+        tts=TTS(),
+        vad=silero.VAD.load(),
     )
 
     await session.start(room=ctx.room, agent=assistant_agent)
@@ -441,8 +625,8 @@ async def entrypoint(ctx: JobContext):
         Greet the chef as Chef Compliance.
         Call check_temperature and check_food_expiry immediately.
         Report any issues found clearly.
-        Tell the chef you can save notes, reminders, stock requests
-        and maintenance issues for their shift summary.
+        Tell the chef you can save notes, reminders, stock requests,
+        maintenance issues, and safely delete notes and inventory items.
         """
     )
 
