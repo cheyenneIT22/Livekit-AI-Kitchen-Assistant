@@ -1,142 +1,160 @@
-# Chef Compliance — Kitchen AI Voice Assistant
+# AIKA — AI Kitchen Assistant
 
-An AI-powered real-time kitchen compliance voice assistant built using LiveKit Agents and OpenAI. Designed for restaurant kitchens, it monitors food safety, tracks inventory, manages timers, and logs shift notes — all via voice.
-
----
-
-## Features
-
-### Voice & AI
-- Real-time voice interaction (Speech-to-Text + Text-to-Speech via OpenAI)
-- AI-powered responses via GPT-4o with function/tool calling
-- Voice activity detection via Silero VAD
-- Interruptible, natural conversation flow
-- Multi-user support — multiple chefs can connect simultaneously from any browser
-
-### Food Safety & Compliance
-- Live temperature monitoring — fridge, freezer, hot hold
-- Safe temperature range enforcement with automatic alerts
-- Food expiry tracking with near-expiry and expired warnings
-- HACCP cooking compliance checks (chicken, beef, pork, fish, eggs, vegetables)
-- Background monitoring — temperature checked every 60s, expiry every 5 minutes
-- Urgent alerts announced automatically by voice
-
-### Inventory Management
-- Add food items with expiry dates and storage location
-- View full inventory with expiry status
-- Safe delete with voice confirmation — won't delete without chef saying YES
-- Auto-remove all expired items with a single voice command
-
-### Shift Notes & Logging
-- Save shift notes by voice — general, handover, reminder categories
-- Read back notes at any time
-- Delete individual notes with confirmation
-- Clear all notes with confirmation
-- Full compliance log of all actions
-
-### Stock & Maintenance
-- Log stock requests by voice with urgency levels (normal / urgent)
-- Report maintenance issues (broken equipment, adjustments needed)
-- Resolve maintenance issues by voice
-- All items appear in end-of-shift summary
-
-### End-of-Shift Summary
-- Full shift report covering notes, stock needed, maintenance issues, expiry warnings, and temperature issues
-- Available on demand by voice at any time
-
-### Browser Client (index.html)
-- Works in Chrome, Firefox, Safari, Edge — any modern browser
-- No installation needed for chefs — just open the page
-- Live voice visualiser showing when agent is speaking
-- Real-time alerts panel
-- Conversation transcript
-- Microphone mute/unmute button
-- Debug log for troubleshooting
+A real-time voice AI assistant for restaurant kitchens, built with LiveKit Agents and OpenAI. Chefs interact entirely by voice to manage food safety, inventory, timers, notes, and shift logs.
 
 ---
 
-## Voice Commands (Examples)
+## Prerequisites
 
-| Action | Say |
-|--------|-----|
-| Add a note | *"Add a note: we are low on olive oil, category reminder"* |
-| Read notes | *"What are my notes?"* or *"Read the shift notes"* |
-| Delete a note | *"Delete the note about olive oil"* → confirm YES |
-| Shift summary | *"Give me the end of shift summary"* |
-| Check temperatures | *"Check temperatures"* |
-| Update temperature | *"Update fridge temperature to 4 degrees"* |
-| Add inventory | *"Add chicken breast, expires in 3 days, fridge"* |
-| Delete inventory | *"Remove chicken from inventory"* → confirm YES |
-| Clear expired | *"Clear all expired items"* |
-| Request stock | *"Request stock: cream, 2 litres, urgent"* |
-| Log maintenance | *"Report maintenance: oven thermostat is off, urgent"* |
-| Set timer | *"Set a 15 minute timer for the lamb"* |
-| HACCP check | *"HACCP check: chicken, 78 degrees, 150 seconds"* |
+Before you start you will need accounts and API keys from:
+
+- **OpenAI** — [platform.openai.com](https://platform.openai.com) (paid credits required)
+- **LiveKit Cloud** — [livekit.io](https://livekit.io) (free tier available)
+  - After signing up, create a project and copy your `URL`, `API Key`, and `API Secret` from the dashboard
 
 ---
 
-## Tech Stack
-
-- Python 3.11
-- LiveKit Agents v1.4+
-- OpenAI API (GPT-4o, Whisper STT, TTS)
-- Silero VAD (voice activity detection)
-- Flask + flask-cors (token server)
-- AsyncIO
-- python-dotenv
-
----
-
-## Project Files
+## Files
 
 | File | Purpose |
 |------|---------|
-| `agent.py` | Main AI agent — all tools, state, background monitoring |
-| `worker.py` | LiveKit worker entry point |
-| `token_server.py` | Flask server that issues browser tokens |
-| `index.html` | Browser client — open in any browser |
-| `.env` | Credentials (not committed to git) |
+| `agent.py` | The AI agent — all voice tools and kitchen logic |
+| `worker.py` | Connects the agent to LiveKit Cloud |
+| `token_server.py` | Small web server that lets browsers connect |
+| `index.html` | Browser interface — open in Chrome, Firefox, etc. |
 
 ---
 
-## Environment Variables
+## Step 1 — Clone the repo
 
-Create a `.env` file in the project root:
-
-```env
-OPENAI_API_KEY=your_openai_key
-LIVEKIT_URL=wss://your_livekit_url
-LIVEKIT_API_KEY=your_livekit_key
-LIVEKIT_API_SECRET=your_livekit_secret
+```bash
+git clone https://github.com/your-username/your-repo-name.git
+cd your-repo-name
 ```
 
 ---
 
-## Installation
+## Step 2 — Create a virtual environment (recommended)
+
+```bash
+# Mac / Linux
+python3 -m venv venv
+source venv/bin/activate
+
+# Windows
+python -m venv venv
+venv\Scripts\activate
+```
+
+---
+
+## Step 3 — Install dependencies
 
 ```bash
 pip install livekit-agents livekit-plugins-openai livekit-plugins-silero \
             python-dotenv flask flask-cors livekit-api
 ```
+
 ---
 
-## Running Locally
+## Step 4 — Create your .env file
 
-```bash
-# Terminal 1 — AI agent
-python worker.py dev
+Create a file called `.env` in the project root folder (same folder as `agent.py`) and add your credentials:
 
-# Terminal 2 — token server for browser clients
-python token_server.py
-
-# Then open index.html in any browser
 ```
-Note: Download token_server py file as well as the index.html when running on multiple browsers
+OPENAI_API_KEY=your_openai_api_key
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=your_livekit_api_key
+LIVEKIT_API_SECRET=your_livekit_api_secret
+```
+
+> **Where to find these:**
+> - `OPENAI_API_KEY` → [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+> - `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` → LiveKit Cloud dashboard → Settings → API Keys
+
 ---
 
-## Running on a Server
+## Step 5 — Run the agent
+
+You need **two terminals** open at the same time.
+
+**Terminal 1 — Start the AI agent:**
+```bash
+python worker.py dev
+```
+
+You should see:
+```
+INFO: starting worker
+INFO: registered worker
+```
+
+**Terminal 2 — Start the token server (required for browser access):**
+```bash
+python token_server.py
+```
+
+You should see:
+```
+Chef Compliance — Token Server
+Running : http://localhost:5000
+```
+
+---
+
+## Step 6 — Open the browser interface
+
+Open `index.html` directly in your browser (double-click the file), or serve it locally:
 
 ```bash
+python -m http.server 8080
+# then open http://localhost:8080/index.html
+```
+
+1. Click **Enter Kitchen** on the overlay
+2. Enter your name and click **Join Kitchen**
+3. Allow microphone access when the browser asks
+4. AIKA will greet you and begin monitoring
+
+---
+
+## Testing on multiple browsers at the same time
+
+To test with Chrome and Firefox simultaneously:
+- Open `index.html` in Chrome → enter name `Marco`, room `kitchen` → Connect
+- Open `index.html` in Firefox → enter name `Anna`, room `kitchen` → Connect
+
+Both connect to the same agent. Each chef can speak to AIKA independently.
+
+---
+
+## Example voice commands
+
+| Say | What happens |
+|-----|-------------|
+| *"AIKA, set a timer 10 minutes for the lamb"* | Starts a named timer |
+| *"AIKA, check temperatures"* | Reports all storage temps |
+| *"AIKA, add a note we are low on cream, category reminder"* | Saves a shift note |
+| *"AIKA, give me the shift summary"* | Reads full end-of-shift report |
+| *"AIKA, request stock: chicken breast, 5 kilos, urgent"* | Logs a stock request |
+| *"AIKA, report maintenance: oven thermostat is off, urgent"* | Logs a maintenance issue |
+| *"AIKA, remove chicken from inventory"* | Asks for confirmation then deletes |
+| *"AIKA, clear all expired items"* | Auto-removes expired inventory |
+
+---
+
+## Deploying on a server (VPS)
+
+```bash
+# SSH into your server, then:
+
+# Install Python if needed
+sudo apt update && sudo apt install python3 python3-pip python3-venv -y
+
+# Clone the repo
+git clone https://github.com/your-username/your-repo-name.git
+cd your-repo-name
+
 # Create virtual environment
 python3 -m venv venv
 source venv/bin/activate
@@ -145,41 +163,41 @@ source venv/bin/activate
 pip install livekit-agents livekit-plugins-openai livekit-plugins-silero \
             python-dotenv flask flask-cors livekit-api
 
-# Run agent
-python3 worker.py dev
-```
-Note: for running the worker.py may have to manually copy and paste code from worker.py into a text file inside the server using the nano worker.py command and save it,
-and also manually copying all of the code from the agent into a text file using the same nano commands and saving it inside the server. (only if files don't connect properly)
-above commands will work accordingly.
+# Create your .env file
+nano .env
+# Paste your credentials, then Ctrl+X → Y → Enter to save
 
-No inbound ports required. The agent connects outbound to LiveKit Cloud.
-
-For production, run the agent as a background service using `systemd` or `screen`:
-
-```bash
-# Using screen
-screen -S chef-compliance
+# Run the agent in the background using screen
+screen -S aika-agent
 python3 worker.py start
-# Ctrl+A then D to detach
+# Press Ctrl+A then D to detach (agent keeps running)
+
+# Run the token server in a second screen
+screen -S aika-tokens
+python3 token_server.py
+# Press Ctrl+A then D to detach
 ```
 
----
+> **Note:** No inbound ports are required. The agent connects outbound to LiveKit Cloud. The token server runs on port 5000 — if you want browsers outside your local network to connect, open port 5000 in your server's firewall.
 
-## Architecture
+To reconnect to a running screen session:
+```bash
+screen -r aika-agent
+screen -r aika-tokens
 
-```
-Chef (Voice via Browser)
-        ↓
-   index.html (any browser)
-        ↓
-  token_server.py (Flask)
-        ↓
-   LiveKit Cloud
-        ↓
-  agent.py (Python Worker)
-        ↓
-   OpenAI API (GPT-4o)
+## Troubleshooting
 
+**`ModuleNotFoundError: No module named 'livekit'`**
+→ Run the pip install command again inside your virtual environment.
 
-## Project Status
-Active development — production-ready restaurant kitchen AI voice assistant with multi-user browser support, full compliance tooling, and server deployment capability.
+**`ImportError: cannot import name 'silero'`**
+→ Run `pip install livekit-plugins-silero`
+
+**Agent starts but can't hear me**
+→ Check your browser allowed microphone access. Click the 🔒 lock icon in the address bar and set Microphone to Allow, then refresh.
+
+**OpenAI 429 error (quota exceeded)**
+→ Add credits to your OpenAI account at [platform.openai.com/billing](https://platform.openai.com/billing)
+
+**Agent is running the old version after updating code**
+→ Press Ctrl+C to stop the worker, then restart with `python worker.py dev`. Disconnect and reconnect in the browser to start a fresh session.
